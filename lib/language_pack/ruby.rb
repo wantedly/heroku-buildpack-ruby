@@ -585,7 +585,7 @@ ERROR
         return unless File.directory?("config")
         topic("Writing config/database.yml to read from DATABASE_URL")
         File.open("config/database.yml", "w") do |file|
-          database_yml =  <<-DATABASE_YML
+          file.puts <<-DATABASE_YML
 <%
 
 require 'cgi'
@@ -664,8 +664,6 @@ end
 <% end %>
 <% end %>
         DATABASE_YML
-          puts database_yml
-          file.puts database_yml
         end
       end
     end
