@@ -585,16 +585,31 @@ ERROR
         return unless File.directory?("config")
         topic("Writing config/database.yml to read from DATABASE_URL")
         File.open("config/database.yml", "w") do |file|
-          file.puts <<-DATABASE_YML
+          database_yml =  <<-DATABASE_YML
 <%
 
 require 'cgi'
 require 'uri'
 
+uri_hash = {}
+env = ENV["RAILS_ENV"] || ENV["RACK_ENV"]
+
 begin
-  uri = URI.parse(ENV["DATABASE_URL"])
+  uri = URI.parse(ENV["MAIN_DATABASE_URL"])
+  uri_hash[\"#{env}"] = uri
 rescue URI::InvalidURIError
-  raise "Invalid DATABASE_URL"
+  raise "Invalid MAIN_DATABASE_URL"
+end
+
+if ENV["ADDITIONAL_DATABASES_STR"].present?
+  ENV['ADDITIONAL_DATABASES_STR'].split(",").compact.each do |engine|
+    begin
+      uri = URI.parse(ENV[engine.upcase+"_DATABASE_URL"])
+      uri_hash[\"#{engine}_#{env}"] = uri
+    rescue URI::InvalidURIError
+      raise "Invalid "+engine.upcase+"_DATABASE_URL"
+    end
+  end
 end
 
 raise "No RACK_ENV or RAILS_ENV found" unless ENV["RAILS_ENV"] || ENV["RACK_ENV"]
@@ -613,33 +628,44 @@ def attribute(name, value, force_string = false)
   end
 end
 
-adapter = uri.scheme
-adapter = "postgresql" if adapter == "postgres"
+def database_attributes(uri)
+  adapter = uri.scheme
+  adapter = "postgresql" if adapter == "postgres"
 
-database = (uri.path || "").split("/")[1]
+  database = (uri.path || "").split("/")[1]
 
-username = uri.user
-password = uri.password
+  username = uri.user
+  password = uri.password
 
-host = uri.host
-port = uri.port
+  host = uri.host
+  port = uri.port
 
-params = CGI.parse(uri.query || "")
+  params = CGI.parse(uri.query || "")
+
+  { adapter:adapter, database:database, username:username, password:password, host:host, port:port, params:params }
+end
 
 %>
 
-<%= ENV["RAILS_ENV"] || ENV["RACK_ENV"] %>:
-  <%= attribute "adapter",  adapter %>
-  <%= attribute "database", database %>
-  <%= attribute "username", username %>
-  <%= attribute "password", password, true %>
-  <%= attribute "host",     host %>
-  <%= attribute "port",     port %>
+<%
+  uri_hash.each do |key, uri|
+    attributes = database_attributes uri
+%>
+<%= key %>:
+  <%= attribute "adapter",  attributes[:adapter] %>
+  <%= attribute "database", attributes[:database] %>
+  <%= attribute "username", attributes[:username] %>
+  <%= attribute "password", attributes[:password], true %>
+  <%= attribute "host",     attributes[:host] %>
+  <%= attribute "port",     attributes[:port] %>
 
-<% params.each do |key, value| %>
+<% attributes[:params].each do |key, value| %>
   <%= key %>: <%= value.first %>
 <% end %>
+<% end %>
         DATABASE_YML
+          puts database_yml
+          file.puts database_yml
         end
       end
     end
