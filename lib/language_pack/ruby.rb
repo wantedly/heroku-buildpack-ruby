@@ -592,11 +592,11 @@ require 'cgi'
 require 'uri'
 
 uri_hash = {}
-env = ENV["RAILS_ENV"] || ENV["RACK_ENV"]
+rails_env = ENV["RAILS_ENV"] || ENV["RACK_ENV"]
 
 begin
   uri = URI.parse(ENV["MAIN_DATABASE_URL"])
-  uri_hash[\"#{env}"] = uri
+  uri_hash["\#{rails_env}"] = uri
 rescue URI::InvalidURIError
   raise "Invalid MAIN_DATABASE_URL"
 end
@@ -605,7 +605,7 @@ if ENV["ADDITIONAL_DATABASES_STR"].present?
   ENV['ADDITIONAL_DATABASES_STR'].split(",").compact.each do |engine|
     begin
       uri = URI.parse(ENV[engine.upcase+"_DATABASE_URL"])
-      uri_hash[\"#{engine}_#{env}"] = uri
+      uri_hash["\#{engine}_\#{rails_env}"] = uri
     rescue URI::InvalidURIError
       raise "Invalid "+engine.upcase+"_DATABASE_URL"
     end
